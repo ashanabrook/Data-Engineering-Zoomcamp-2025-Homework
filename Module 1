@@ -1,1 +1,143 @@
+#Question 1:
+
+$ docker run -it --entrypoint bash python:3.12.8
+Unable to find image 'python:3.12.8' locally
+3.12.8: Pulling from library/python
+eb52a57aa542: Download complete
+684a51896c82: Download complete
+fd0410a2d1ae: Download complete
+5f16749b32ba: Download complete
+e00350058e07: Download complete
+bf571be90f05: Download complete
+fbf93b646d6b: Download complete
+Digest: sha256:dc5502d90ea8164c9cbfd2d3a505538a4e47c91664915906a33f416120f25186
+Status: Downloaded newer image for python:3.12.8
+root@5d1b3de53aa1:/#
+root@5d1b3de53aa1:/# pip --version
+pip 24.3.1 from /usr/local/lib/python3.12/site-packages/pip (python 3.12)
+root@5d1b3de53aa1:/#
+
+#Question 2:
+
+The hostname of the service should be the name of the service, which in this case is "db"
+
+The port is within Docker Compose, so it defaults to the native 5432.
+
+
+Question 3 SQL:
+I used SUMs to put it all into one query:
+
+SELECT
+    SUM(CASE WHEN trip_distance <= 1 THEN 1 ELSE 0 END) AS part_one,
+    SUM(CASE WHEN trip_distance > 1 AND trip_distance <= 3 THEN 1 ELSE 0 END) AS part_two,
+    SUM(CASE WHEN trip_distance > 3 AND trip_distance <= 7 THEN 1 ELSE 0 END) AS part_three,
+    SUM(CASE WHEN trip_distance > 7 AND trip_distance <= 10 THEN 1 ELSE 0 END) AS part_four,
+    SUM(CASE WHEN trip_distance > 10 THEN 1 ELSE 0 END) AS part_five
+FROM
+    green_tripdata
+WHERE
+    dropoff_datetime >= '2019-10-01' AND dropoff_datetime < '2019-11-01';
+
+
+Question 4 SQL:
+
+WITH daily_longest_trips AS (
+    SELECT
+        DATE(pickup_datetime) AS pickup_day,
+        MAX(trip_distance) AS max_distance
+    FROM
+        green_tripdata
+    GROUP BY
+        DATE(pickup_datetime)
+),
+longest_trip_day AS (
+    SELECT
+        pickup_day,
+        max_distance
+    FROM
+        daily_longest_trips
+    ORDER BY
+        max_distance DESC
+    LIMIT 1
+)
+SELECT
+    pickup_day
+FROM
+    longest_trip_day;
+
+
+Question 5 SQL:
+
+Note that due to the amiguity regards number of respones in the prompt, I placed a limit of 3 on the query.
+
+WITH daily_pickup_totals AS (
+    SELECT
+        pickup_location_id,
+        SUM(total_amount) AS total_amount_sum
+    FROM
+        green_tripdata
+    WHERE
+        DATE(pickup_datetime) = '2019-10-18'
+    GROUP BY
+        pickup_location_id
+    HAVING
+        SUM(total_amount) > 13000
+),
+top_pickup_zones AS (
+    SELECT
+        z.zone AS pickup_zone,
+        d.total_amount_sum
+    FROM
+        daily_pickup_totals d
+    JOIN
+        taxi_zone_lookup z
+    ON
+        d.pickup_location_id = z.location_id
+    ORDER BY
+        d.total_amount_sum DESC
+)
+SELECT
+    pickup_zone
+FROM
+    top_pickup_zones
+LIMIT 3;
+
+
+Question 6 SQL:
+
+WITH pickup_data AS (
+    SELECT
+        g.dropoff_location_id,
+        g.tip_amount
+    FROM
+        green_tripdata g
+    JOIN
+        taxi_zone_lookup z
+    ON
+        g.pickup_location_id = z.location_id
+    WHERE
+        z.zone = 'East Harlem North'
+        AND DATE(g.pickup_datetime) BETWEEN '2019-10-01' AND '2019-10-31'
+),
+largest_tip_zone AS (
+    SELECT
+        td.zone AS dropoff_zone,
+        MAX(p.tip_amount) AS max_tip
+    FROM
+        pickup_data p
+    JOIN
+        taxi_zone_lookup td
+    ON
+        p.dropoff_location_id = td.location_id
+    GROUP BY
+        td.zone
+    ORDER BY
+        max_tip DESC
+    LIMIT 1
+)
+SELECT
+    dropoff_zone
+FROM
+    largest_tip_zone;
+
 
