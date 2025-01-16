@@ -140,4 +140,9 @@ SELECT
 FROM
     largest_tip_zone;
 
+Question 7 explantion:
+
+"terraform init" is used to download plug ins and initialize the working directory, setting up the backend.
+"terraform apply" applies the actual changes, while "-auto-approve" execution without first requiring a confirmation prompt.
+"terraform destroy" removes all resources
 
