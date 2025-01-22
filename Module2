@@ -1,0 +1,25 @@
+# Kestra code for backfilling 2021 data for both green and yellow taxi datasets:
+
+id: nyc-taxi-data-2021-scheduled-backfill
+namespace: module_2_assignment  
+schedule:
+  cron: "0 0 1 * *"  
+  backfill:
+    start: 2021-01-01T00:00:00Z
+    stop: 2021-07-31T23:59:59Z
+
+tasks:
+  - id: download-taxi-data
+    type: io.kestra.core.tasks.scripts.Bash
+    variables:
+      taxi_types: "green yellow"
+      months: "01 02 03 04 05 06 07"
+    script: |
+      for taxi in {{ variables.taxi_types }}
+      do
+        for month in {{ variables.months }}
+        do
+          echo "Downloading $taxi taxi data for 2021-${month}..."
+          wget -O $taxi"_tripdata_2021-${month}.csv.gz" "https://github.com/DataTalksClub/nyc-tlc-data/releases/download/$taxi/$taxi"_tripdata_2021-${month}.csv.gz"
+        done
+      done
