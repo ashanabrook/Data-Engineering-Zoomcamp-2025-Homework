@@ -1,0 +1,56 @@
+# Python script used to send Yellow Taxi Parquet Files to GCP
+# Note that file locations and other names have been changed for privacy reasons
+
+from google.cloud import storage
+import os
+
+yellow_taxi_bucket = "your-gcs-bucket-name"
+
+def upload_to_gcs(my_file_location_private, whatever_gsc_path):
+    client = storage.Client()
+    bucket = client.bucket(yellow_taxi_bucket)
+    blob = bucket.blob(whatever_gsc_path)
+    blob.upload_from_filename(my_file_location_private)
+    print(f"Uploaded {my_file_location_private} to {whatever_gsc_path}")
+
+for filename in os.listdir("data"):
+    if filename.endswith(".parquet"):
+        upload_to_gcs(f"data/{whatever_file_name}", f"yellow_taxi/{whatever_file_name}")
+
+# SQL for making external table
+
+CREATE OR REPLACE EXTERNAL TABLE `external_taxi_table`
+OPTIONS (
+  format = 'PARQUET',
+  uris = ['gs://yellow_taxi_bucket/yellow_taxi/*.parquet']
+);
+
+# SQL for materialized table
+
+CREATE OR REPLACE TABLE `taxi_dwh.taxi_dataset.materialized_yellow_taxi_table` AS
+SELECT * FROM `taxi_dwh.taxi_dataset.external_taxi_table`;
+
+# SQL Question 1:
+
+SELECT COUNT(*) FROM `taxi_dwh.taxi_dataset.materialized_yellow_taxi_table`;
+
+# SQL Question 2:
+SELECT COUNT(DISTINCT PULocationID) FROM `taxi_dwh.taxi_dataset.materialized_yellow_taxi_table`;
+
+# SQL Question 4: 
+SELECT COUNT(*) FROM `taxi_dwh.taxi_dataset.materialized_yellow_taxi_table` WHERE fare_amount = 0;
+
+# Creating optimized table for Question 5
+
+CREATE OR REPLACE TABLE `taxi_dwh.taxi_dataset.optimized_yellow_taxi_table`
+PARTITION BY DATE(tpep_dropoff_datetime)
+CLUSTER BY VendorID AS
+SELECT * FROM `taxi_dwh.taxi_dataset.materialized_yellow_taxi_table`;
+
+
+# Creating partitioned table for Question 6
+
+SELECT DISTINCT VendorID 
+FROM `taxi_dwh.taxi_dataset.optimized_yellow_taxi_table`
+WHERE DATE(tpep_dropoff_datetime) BETWEEN '2024-03-01' AND '2024-03-15';
+
