@@ -1,0 +1,6 @@
+# Most code was as directed in the homework. See additional work here.
+
+#For question 3, I used this Python script to print the length of the dataframe to show the number of records (10 pages, 1K each)
+
+df = pipeline.dataset(dataset_type="default").rides.df()
+print(len(df))
