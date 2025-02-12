@@ -1,5 +1,6 @@
-# Python script used to send Yellow Taxi Parquet Files to GCP
 # Note that file locations and other names have been changed for privacy reasons
+
+# Python script used to send Yellow Taxi Parquet Files to GCP
 
 from google.cloud import storage
 import os
