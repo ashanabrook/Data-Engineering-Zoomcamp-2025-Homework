@@ -1,0 +1,111 @@
+# Note that some values names are changed for privacy
+
+#Question 1: yaml file config
+
+version: 2
+
+sources:
+  - name: raw_nyc_tripdata
+    database: "{{ env_var('DBT_BIGQUERY_PROJECT', 'dtc_zoomcamp_2025') }}"
+    schema:   "{{ env_var('DBT_BIGQUERY_SOURCE', 'raw_nyc_tripdata') }}"
+    tables:
+      - name: green_taxi
+      - name: yellow_taxi
+
+#Question 2 SQL
+
+select *
+from {{ ref('fact_taxi_trips') }}
+where pickup_datetime >= CURRENT_DATE - INTERVAL '{{ var("days_back", env_var("DAYS_BACK", "30")) }}' DAY
+
+#Question 4 SQL
+
+{% macro resolve_schema_for(model_type) -%}
+
+    {%- set target_env_var = 'DBT_BIGQUERY_TARGET'  -%}
+    {%- set stging_env_var = 'DBT_BIGQUERY_STAGING' -%}
+
+    {%- if model_type == 'core' -%} {{- env_var(target_env_var) -}}
+    {%- else -%}                    {{- env_var(stging_env_var, env_var(target_env_var)) -}}
+    {%- endif -%}
+
+{%- endmacro %}
+
+#Question 5 SQL
+
+with trip_data as (
+    select 
+        service_type,
+        extract(year from pickup_datetime) as year,
+        extract(quarter from pickup_datetime) as quarter,
+        sum(total_amount) as revenue
+    from {{ ref('fact_taxi_trips') }}
+    group by service_type, year, quarter
+),
+revenue_growth as (
+    select 
+        service_type,
+        year,
+        quarter,
+        revenue,
+        lag(revenue) over (partition by service_type, quarter order by year) as previous_year_revenue,
+        (revenue - previous_year_revenue) / previous_year_revenue * 100 as yoy_growth
+    from trip_data
+)
+select * from revenue_growth
+
+#Question 6 SQL
+
+with filtered_trips as (
+    select 
+        service_type,
+        extract(year from pickup_datetime) as year,
+        extract(month from pickup_datetime) as month,
+        fare_amount
+    from {{ ref('fact_taxi_trips') }}
+    where fare_amount > 0 
+    and trip_distance > 0 
+    and payment_type_description in ('Cash', 'Credit Card')
+),
+fare_percentiles as (
+    select 
+        service_type,
+        year,
+        month,
+        percentile_cont(0.97) over (partition by service_type, year, month) as p97,
+        percentile_cont(0.95) over (partition by service_type, year, month) as p95,
+        percentile_cont(0.90) over (partition by service_type, year, month) as p90
+    from filtered_trips
+)
+select distinct * from fare_percentiles
+
+
+#Question 7 SQL
+
+with trip_duration as (
+    select 
+        pickup_location_id,
+        dropoff_location_id,
+        extract(year from pickup_datetime) as year,
+        extract(month from pickup_datetime) as month,
+        timestamp_diff(dropoff_datetime, pickup_datetime, SECOND) as trip_duration
+    from {{ ref('dim_fhv_trips') }}
+),
+trip_p90 as (
+    select 
+        pickup_location_id,
+        dropoff_location_id,
+        year,
+        month,
+        percentile_cont(0.90) over (partition by year, month, pickup_location_id, dropoff_location_id) as p90_trip_duration
+    from trip_duration
+)
+select 
+    pickup_location_id,
+    dropoff_location_id,
+    year,
+    month,
+    p90_trip_duration
+from trip_p90
+where year = 2019 and month = 11
+
