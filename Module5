@@ -1,0 +1,75 @@
+#Note that names of tables, files etc. have been changed for privacy
+
+#Question 1 Python
+
+from pyspark.sql import SparkSession
+
+spark = SparkSession.builder.appName("SparkSetup").getOrCreate()
+print("Spark Version:", spark.version)
+
+#Question 2
+
+from pyspark.sql import SparkSession
+
+spark = SparkSession.builder.appName("ParquetSize").getOrCreate()
+
+df = spark.read.parquet("yellow_tripdata_2024-10.parquet")
+
+df.repartition(4).write.mode("overwrite").parquet("output/")
+
+print("Parquet files saved in 'output/' directory.")
+
+#Question 3
+
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col
+
+spark = SparkSession.builder.appName("CountTripsOct15").getOrCreate()
+
+df = spark.read.parquet("yellow_tripdata_2024-10.parquet")
+
+df_filtered = df.filter(col("tpep_pickup_datetime").startswith("2024-10-15"))
+
+print("Number of trips on October 15:", df_filtered.count())
+
+#Question 4
+
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import unix_timestamp, col
+
+spark = SparkSession.builder.appName("LongestTrip").getOrCreate()
+
+df = spark.read.parquet("yellow_tripdata_2024-10.parquet")
+
+df = df.withColumn("trip_duration", 
+                   (unix_timestamp("tpep_dropoff_datetime") - unix_timestamp("tpep_pickup_datetime")) / 3600)
+
+longest_trip = df.select("trip_duration").orderBy(col("trip_duration").desc()).first()
+print("Longest Trip Duration (hours):", longest_trip[0])
+
+#Question 6
+
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col
+
+spark = SparkSession.builder.appName("LeastFrequentZone").getOrCreate()
+
+df = spark.read.parquet("yellow_tripdata_2024-10.parquet")
+zones = spark.read.option("header", True).csv("taxi_zone_lookup.csv")
+
+df.createOrReplaceTempView("trips")
+zones.createOrReplaceTempView("zones")
+
+query = """
+SELECT z.Zone, COUNT(*) AS pickup_count
+FROM trips t
+JOIN zones z
+ON t.PULocationID = z.LocationID
+GROUP BY z.Zone
+ORDER BY pickup_count ASC
+LIMIT 1
+"""
+least_frequent_zone = spark.sql(query).first()
+print("Least Frequent Pickup Zone:", least_frequent_zone[0])
+
+
